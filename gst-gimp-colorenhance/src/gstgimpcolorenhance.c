@@ -507,7 +507,7 @@ gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
   
 
   ColorEnhanceParam_t param;
-  gint x, y;
+  gint x, y, hsvx;
   gint bytes_x, bytes_x_hsvk;
 
 
@@ -528,10 +528,12 @@ gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
   bytes_x = filter->width * 3;
   bytes_x_hsvk = filter->width * 4;
 
+  hsvx = 0;
   for(y=0; y<filter->height; y++) {
-    for(x=0; x<bytes_x; x+=3) {
-      colorspace_prepare (data + y*bytes_x + x, hsvdata + y*bytes_x_hsvk + x*4/3);
+    for(x=0; x<bytes_x; x+=3, hsvx+=4) {
+      colorspace_prepare (data + y*bytes_x + x, hsvdata + y*bytes_x_hsvk + hsvx);
     }
+    hsvx = 0;
   }
 
   /* Find vhi and vlo. */
@@ -554,10 +556,12 @@ gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
 
   /* Convert colorspace back to RGB. */
 
+  hsvx = 0;
   for(y=0; y<filter->height; y++) {
-    for(x=0; x<bytes_x; x+=3) {
-      colorspace_prepare_reverse (hsvdata + y*bytes_x_hsvk + x*4/3, data + y*bytes_x + x);
+    for(x=0; x<bytes_x; x+=3, hsvx+=4) {
+      colorspace_prepare_reverse (hsvdata + y*bytes_x_hsvk + hsvx, data + y*bytes_x + x);
     }
+    hsvx = 0;
   }
 
 /*
