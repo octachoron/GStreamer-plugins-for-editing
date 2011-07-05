@@ -1,0 +1,10 @@
+WHAT IT IS
+----------
+
+gst-sobel is an I420 video filter that calculates luminance gradient magnitude.
+
+HOW TO USE IT
+-------------
+
+An example launch line is:
+gst-launch videotestsrc ! sobel ! autovideosink
