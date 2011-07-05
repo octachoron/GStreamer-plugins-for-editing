@@ -90,7 +90,8 @@ enum
 enum
 {
   PROP_0,
-  PROP_SILENT
+  PROP_SILENT,
+  PROP_MIRROR
 };
 
 /* the capabilities of the inputs and outputs.
@@ -157,6 +158,13 @@ gst_sobel_class_init (GstSobelClass * klass)
   g_object_class_install_property (gobject_class, PROP_SILENT,
       g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
           FALSE, G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class, PROP_MIRROR,
+      g_param_spec_boolean ("mirror", "Mirror", "If true, clamp the indices\
+between zero and maximum dimension in the gradient calculation, effectively\
+mirroring border pixels outside the frame, so that the operator can be applied\
+to them. This reduces performance. If false, border pixels will be black.",
+          FALSE, G_PARAM_READWRITE));
 }
 
 /* initialize the new element
@@ -183,6 +191,7 @@ gst_sobel_init (GstSobel * filter,
   gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
   gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
   filter->silent = FALSE;
+  filter->mirror = TRUE;
 }
 
 static void
@@ -194,6 +203,9 @@ gst_sobel_set_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_SILENT:
       filter->silent = g_value_get_boolean (value);
+      break;
+    case PROP_MIRROR:
+      filter->mirror = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -210,6 +222,9 @@ gst_sobel_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_SILENT:
       g_value_set_boolean (value, filter->silent);
+      break;
+    case PROP_MIRROR:
+      g_value_set_boolean (value, filter->mirror);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -260,6 +275,8 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
   gint mi, mj;
   gint g_x, g_y;
 
+  guint8 skip_border = 1;
+
 
   filter = GST_SOBEL (GST_OBJECT_PARENT (pad));
 
@@ -273,9 +290,12 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
   origdata = GST_BUFFER_DATA (buf);
   newdata = GST_BUFFER_DATA (wrbuf);
 
+  if(filter->mirror == TRUE) {
+    skip_border = 0;
+  }
 
-  for(i=0; i<filter->height; i++) {
-    for(j=0; j<filter->width; j++) {
+  for(i=skip_border; i < (filter->height - skip_border); i++) {
+    for(j=skip_border; j < (filter->width - skip_border); j++) {
 
       /* Set chroma to gray */
       newdata[filter->height*filter->width +
@@ -284,27 +304,49 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
               (filter->width/2*(i/2)+(j/2)) +
                filter->height*filter->width/4] = 127;
 
-
       g_x = 0;
       for(mi = -1; mi <= 1; mi++) {
         for(mj = -1; mj <= 1; mj++) {
-          g_x += sobel_x[mi+1][mj+1] *
-                  origdata[filter->width*(CLAMP(i+mi,0,filter->height-1)) +
-                            CLAMP(j+mj,0,filter->width-1)];
+            if(filter->mirror == TRUE) {
+              g_x += sobel_x[mi+1][mj+1] *
+                      origdata[filter->width*(CLAMP(i+mi,0,filter->height-1)) +
+                                CLAMP(j+mj,0,filter->width-1)];
+            } else {
+              g_x += sobel_x[mi+1][mj+1] * origdata[filter->width*(i+mi) +
+                                                    (j+mj)];
+            }
         }
       }
 
       g_y = 0;
       for(mi = -1; mi <= 1; mi++) {
         for(mj = -1; mj <= 1; mj++) {
-          g_y += sobel_y[mi+1][mj+1] *
-                  origdata[filter->width*(CLAMP(i+mi,0,filter->height-1)) +
-                            CLAMP(j+mj,0,filter->width-1)];
+            if(filter->mirror) {
+              g_y += sobel_y[mi+1][mj+1] *
+                      origdata[filter->width*(CLAMP(i+mi,0,filter->height-1)) +
+                                CLAMP(j+mj,0,filter->width-1)];
+            } else {
+              g_y += sobel_y[mi+1][mj+1] * origdata[filter->width*(i+mi) +
+                                                    (j+mj)];
+            }
         }
       }
 
       /* Calculate magnitude, normalize */
       newdata[i*filter->width+j] = sqrt(g_x*g_x + g_y*g_y) * 255 / 1443;
+    }
+  }
+
+  /* Zero out borders if not mirroring border pixels */
+  if(filter->mirror == FALSE) {
+    for(i=0; i<filter->height; i++) {
+      newdata[i*filter->width] = 0;
+      newdata[i*filter->width + filter->width - 1] = 0;
+    }
+
+    for(j=0; j<filter->width; j++) {
+      newdata[j] = 0;
+      newdata[(filter->height-1)*filter->width + j] = 0;
     }
   }
 

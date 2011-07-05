@@ -72,6 +72,8 @@ struct _GstSobel
   GstPad *sinkpad, *srcpad;
 
   gboolean silent;
+  gboolean mirror;
+
   gint width, height;
 };
 
