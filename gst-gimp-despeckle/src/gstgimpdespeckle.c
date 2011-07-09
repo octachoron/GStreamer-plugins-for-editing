@@ -441,7 +441,7 @@ despeckle_median (guchar   *src,
   diameter = (2 * radius) + 1;
   box      = SQR (diameter);
   /* TODO: possible performance increase if we don't allocate these for every
-   * frame, but just once when */
+   * frame, but just once when setting the despeckle-radius property */
   buf      = g_new (const guchar *, box);
   ibuf     = g_new (guchar, box);
 
