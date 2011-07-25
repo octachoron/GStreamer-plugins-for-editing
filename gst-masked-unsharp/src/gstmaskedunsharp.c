@@ -107,6 +107,10 @@ static GstStateChangeReturn
 gst_masked_unsharp_change_state(GstElement *element, GstStateChange transition);
 static GstFlowReturn
 gst_masked_unsharp_collect_func(GstCollectPads *pads, gpointer user_data);
+static gboolean
+gst_masked_unsharp_sink_event (GstPad  *pad, GstEvent *event);
+static gboolean
+gst_masked_unsharp_src_event (GstPad  *pad, GstEvent *event);
 
 /* GObject vmethod implementations */
 
@@ -167,12 +171,13 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
       gst_static_pad_template_get(&fsink_factory));
   gst_pad_set_setcaps_function(filter->framesink,
       gst_masked_unsharp_set_frame_caps);
+  gst_pad_set_event_function (filter->framesink, gst_masked_unsharp_sink_event);
 
   filter->masksink = gst_pad_new_from_static_template(&msink_factory, "msink");
+  gst_pad_set_event_function (filter->masksink, gst_masked_unsharp_sink_event);
 
   filter->srcpad = gst_pad_new_from_static_template(&src_factory, "src");
-
-  //FIXME: custom event handler needed
+  gst_pad_set_event_function (filter->srcpad, gst_masked_unsharp_src_event);
 
   gst_element_add_pad(GST_ELEMENT (filter), filter->framesink);
   gst_element_add_pad(GST_ELEMENT (filter), filter->masksink);
@@ -336,6 +341,43 @@ gst_masked_unsharp_set_frame_caps(GstPad * pad, GstCaps * caps)
   gst_object_unref(filter);
 
   return gst_pad_set_caps(otherpad, caps);
+}
+
+static gboolean
+gst_masked_unsharp_sink_event (GstPad  *pad, GstEvent *event) {
+  GstMaskedUnsharp *filter;
+  gboolean ret;
+
+  filter = GST_MASKEDUNSHARP (gst_pad_get_parent (pad));
+
+  GST_DEBUG ("sink named %s got an event of type %s\n", gst_pad_get_name (pad), GST_EVENT_TYPE_NAME (event) );
+
+  switch (GST_EVENT_TYPE (event)) {
+    default:
+      ret = gst_pad_push_event (filter->srcpad, event);
+      break;
+  }
+
+
+  gst_object_unref (filter);
+  return ret;
+}
+
+static gboolean
+gst_masked_unsharp_src_event (GstPad  *pad, GstEvent *event) {
+   GstMaskedUnsharp *filter;
+   gboolean ret;
+
+   filter = GST_MASKEDUNSHARP (gst_pad_get_parent (pad));
+
+   GST_DEBUG ("the src got an event of type %s\n", GST_EVENT_TYPE_NAME (event) );
+
+   gst_event_ref (event);
+   ret = gst_pad_push_event (filter->framesink, event);
+   ret = ret && gst_pad_push_event (filter->masksink, event);
+
+   gst_object_unref (filter);
+   return ret;
 }
 
 static GstFlowReturn
