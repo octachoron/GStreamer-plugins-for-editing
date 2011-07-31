@@ -59,7 +59,6 @@ struct _GstMaskedUnsharp
 
   /* Sharpening bin stuff */
   GstElement *unsharp_bin;
-  GstPad *unsharp_bin_sinkpad, *unsharp_bin_origpad, *unsharp_bin_sharppad;
   GstElement *gaussblur, *tee, *frame_queue, *sharp_queue, *identity;
 
 };

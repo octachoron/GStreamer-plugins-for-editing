@@ -165,6 +165,8 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   GstPad *gaussblur_src, *origq_src;
   GstGhostPad *framesink;
   GstBin *unsharp_bin;
+  GstElement *gaussblur, *tee, *frame_queue, *sharp_queue;
+  GstPad *unsharp_bin_sinkpad, *unsharp_bin_origpad, *unsharp_bin_sharppad;
 
   /* Sharpening bin sink pad given as target later */
   filter->framesink = gst_ghost_pad_new_no_target_from_template("fsink",
@@ -190,48 +192,53 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   /* Set up the bin for global sharpening */
 
   filter->unsharp_bin = gst_bin_new("unsharp-bin");
-  filter->gaussblur = gst_element_factory_make("gaussianblur", "sharpen");
-  filter->tee = gst_element_factory_make("tee", "tee");
-  filter->frame_queue = gst_element_factory_make("queue", "frame-queue");
-  filter->sharp_queue = gst_element_factory_make("queue", "sharp-queue");
+  gaussblur = gst_element_factory_make("gaussianblur", "sharpen");
+  tee = gst_element_factory_make("tee", "tee");
+  frame_queue = gst_element_factory_make("queue", "frame-queue");
+  sharp_queue = gst_element_factory_make("queue", "sharp-queue");
 
-  g_object_set(G_OBJECT (filter->gaussblur), "sigma", (gdouble) -6.0, NULL);
+  g_object_set(G_OBJECT (gaussblur), "sigma", (gdouble) -6.0, NULL);
       //TODO: turn this into a property
 
   unsharp_bin = GST_BIN (filter->unsharp_bin);
-  gst_bin_add_many(unsharp_bin, filter->gaussblur, filter->tee,
-      filter->frame_queue, filter->sharp_queue, NULL);
-  gst_element_link_many(filter->sharp_queue, filter->gaussblur, NULL);
-  tee_sinkpad = gst_element_get_static_pad(filter->tee, "sink");
+  gst_bin_add_many(unsharp_bin, gaussblur, tee,
+      frame_queue, sharp_queue, NULL);
+  gst_element_link_many(sharp_queue, gaussblur, NULL);
+  tee_sinkpad = gst_element_get_static_pad(tee, "sink");
 
-  tee_src0 = gst_element_get_request_pad(filter->tee, "src%d");
-  tee_src1 = gst_element_get_request_pad(filter->tee, "src%d");
+  tee_src0 = gst_element_get_request_pad(tee, "src%d");
+  tee_src1 = gst_element_get_request_pad(tee, "src%d");
       //FIXME: do this with new function
 
-  origq_sink = gst_element_get_static_pad(filter->frame_queue, "sink");
-  sharpq_sink = gst_element_get_static_pad(filter->sharp_queue, "sink");
-  origq_src = gst_element_get_static_pad(filter->frame_queue, "src");
-  gaussblur_src = gst_element_get_static_pad(filter->gaussblur, "src");
+  origq_sink = gst_element_get_static_pad(frame_queue, "sink");
+  sharpq_sink = gst_element_get_static_pad(sharp_queue, "sink");
+  origq_src = gst_element_get_static_pad(frame_queue, "src");
+  gaussblur_src = gst_element_get_static_pad(gaussblur, "src");
 
   gst_pad_link(tee_src0, sharpq_sink);
   gst_pad_link(tee_src1, origq_sink);
 
-  filter->unsharp_bin_sinkpad = gst_ghost_pad_new("sinkpad", tee_sinkpad);
-  filter->unsharp_bin_origpad = gst_ghost_pad_new("origpad", origq_src);
-  filter->unsharp_bin_sharppad = gst_ghost_pad_new("sharppad", gaussblur_src);
-
-  gst_element_add_pad(filter->unsharp_bin, filter->unsharp_bin_sinkpad);
-  gst_element_add_pad(filter->unsharp_bin, filter->unsharp_bin_origpad);
-  gst_element_add_pad(filter->unsharp_bin, filter->unsharp_bin_sharppad);
+  unsharp_bin_sinkpad = gst_ghost_pad_new("sinkpad", tee_sinkpad);
+  unsharp_bin_origpad = gst_ghost_pad_new("origpad", origq_src);
+  unsharp_bin_sharppad = gst_ghost_pad_new("sharppad", gaussblur_src);
 
   framesink = GST_GHOST_PAD (filter->framesink);
-  gst_ghost_pad_set_target(framesink, filter->unsharp_bin_sinkpad);
+  gst_ghost_pad_set_target(framesink, unsharp_bin_sinkpad);
+
+  gst_object_ref (unsharp_bin_origpad);
+  gst_object_ref (unsharp_bin_sharppad);
+
+  gst_element_add_pad(filter->unsharp_bin, unsharp_bin_sinkpad);
+  gst_element_add_pad(filter->unsharp_bin, unsharp_bin_origpad);
+  gst_element_add_pad(filter->unsharp_bin, unsharp_bin_sharppad);
 
   gst_object_unref(tee_sinkpad);
   gst_object_unref(tee_src0);
   gst_object_unref(tee_src1);
   gst_object_unref(origq_sink);
   gst_object_unref(sharpq_sink);
+  gst_object_unref(gaussblur_src);
+  gst_object_unref(origq_src);
 
   gst_element_set_parent (filter->unsharp_bin, GST_OBJECT (filter));
 
@@ -246,8 +253,11 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
       "ssinki");
   gst_pad_activate_push(filter->framesink_internal, TRUE);
   gst_pad_activate_push(filter->sharpsink_internal, TRUE);
-  gst_pad_link(filter->unsharp_bin_origpad, filter->framesink_internal);
-  gst_pad_link(filter->unsharp_bin_sharppad, filter->sharpsink_internal);
+  gst_pad_link(unsharp_bin_origpad, filter->framesink_internal);
+  gst_pad_link(unsharp_bin_sharppad, filter->sharpsink_internal);
+
+  gst_object_unref (unsharp_bin_origpad);
+  gst_object_unref (unsharp_bin_sharppad);
 
   filter->input = gst_collect_pads_new();
   gst_collect_pads_set_function(filter->input, gst_masked_unsharp_collect_func,
