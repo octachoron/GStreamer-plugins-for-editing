@@ -233,6 +233,8 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   gst_object_unref(origq_sink);
   gst_object_unref(sharpq_sink);
 
+  gst_element_set_parent (filter->unsharp_bin, GST_OBJECT (filter));
+
   /* Set up the CollectPads
    * The main idea here is creating two additional pads to be able to link the
    * source pads of the sharpening bin to a CollectPads.
@@ -436,7 +438,7 @@ gst_masked_unsharp_change_state(GstElement *element, GstStateChange transition)
     }
 
   //XXX: good to change unsharp bin state here?
-  ret = gst_element_change_state(filter->unsharp_bin, transition);
+  ret = gst_element_sync_state_with_parent (filter->unsharp_bin);
   if (ret == GST_STATE_CHANGE_FAILURE)
     {
       GST_ERROR("unsharp bin failed to change state\n");
