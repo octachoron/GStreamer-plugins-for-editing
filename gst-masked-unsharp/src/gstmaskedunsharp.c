@@ -288,6 +288,7 @@ gst_masked_unsharp_finalize (GObject *object) {
   GstMaskedUnsharp *filter = GST_MASKEDUNSHARP (object);
 
   gst_object_unref(filter->input);
+  gst_object_unparent ( GST_OBJECT (filter->unsharp_bin) );
   gst_object_unref(filter->gaussblur);
 
   G_OBJECT_CLASS (parent_class)->finalize(object);
