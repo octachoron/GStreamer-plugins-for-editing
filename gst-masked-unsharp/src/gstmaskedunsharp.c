@@ -143,7 +143,7 @@ gst_masked_unsharp_class_init(GstMaskedUnsharpClass * klass)
 
   gobject_class->set_property = gst_masked_unsharp_set_property;
   gobject_class->get_property = gst_masked_unsharp_get_property;
-
+  gobject_class->finalize = gst_masked_unsharp_finalize;
 
   g_object_class_install_property(gobject_class, PROP_SILENT,
       g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
