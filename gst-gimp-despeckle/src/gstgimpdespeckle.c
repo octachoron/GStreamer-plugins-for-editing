@@ -538,29 +538,22 @@ static GstFlowReturn
 gst_gimp_despeckle_chain (GstPad * pad, GstBuffer * buf)
 {
   GstGimpDespeckle *filter;
-  GstBuffer *cpbuf, *wrbuf;
+  GstBuffer *destbuf;
   guint8 *origdata, *newdata;
 
   filter = GST_GIMPDESPECKLE (GST_OBJECT_PARENT (pad));
 
-  cpbuf = gst_buffer_copy (buf);
-  wrbuf = gst_buffer_make_writable (cpbuf);
-  if(wrbuf != cpbuf) {
-    gst_buffer_unref(cpbuf);
-  }
-  cpbuf = gst_buffer_make_writable (buf);
-  if(cpbuf != buf) {
-    gst_buffer_unref(buf);
-  }
+  destbuf = gst_buffer_copy (buf);
+  destbuf = gst_buffer_make_writable (destbuf);
 
   origdata = GST_BUFFER_DATA (buf);
-  newdata = GST_BUFFER_DATA (wrbuf);
+  newdata = GST_BUFFER_DATA (destbuf);
 
   despeckle_median (origdata, newdata, filter->width, filter->height, 3,
                       FALSE, filter);
 
-  gst_buffer_unref (cpbuf);
-  return gst_pad_push (filter->srcpad, wrbuf);
+  gst_buffer_unref (buf);
+  return gst_pad_push (filter->srcpad, destbuf);
 }
 
 

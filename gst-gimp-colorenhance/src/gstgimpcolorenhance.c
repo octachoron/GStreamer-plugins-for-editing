@@ -478,7 +478,7 @@ static GstFlowReturn
 gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
 {
   GstGimpColorEnhance *filter;
-  GstBuffer *wrbuf, *hsvbuf;
+  GstBuffer *hsvbuf;
   guint8 *data, *hsvdata;
   
 
@@ -490,13 +490,10 @@ gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
   filter = GST_GIMPCOLORENHANCE (GST_OBJECT_PARENT (pad));
 
 
-  wrbuf = gst_buffer_make_writable (buf);
-  if(buf != wrbuf) {
-    gst_buffer_unref (buf);
-  }
+  buf = gst_buffer_make_writable (buf);
   hsvbuf = gst_buffer_new_and_alloc(filter->width * filter->height * 4);
 
-  data = GST_BUFFER_DATA (wrbuf);
+  data = GST_BUFFER_DATA (buf);
   hsvdata = GST_BUFFER_DATA (hsvbuf);
 
   /* Convert color space first, for speed. */
@@ -547,7 +544,7 @@ gst_gimp_color_enhance_chain (GstPad * pad, GstBuffer * buf)
 
   gst_buffer_unref (hsvbuf);
 
-  return gst_pad_push (filter->srcpad, wrbuf);
+  return gst_pad_push (filter->srcpad, buf);
 }
 
 

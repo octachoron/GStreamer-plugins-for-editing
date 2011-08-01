@@ -433,7 +433,6 @@ static GstFlowReturn
 gst_gimpcontraststretch_chain (GstPad * pad, GstBuffer * buf)
 {
   Gstgimpcontraststretch *filter;
-  GstBuffer *wrbuf;
   guint8 *data;
 
   AutostretchData param;
@@ -442,12 +441,8 @@ gst_gimpcontraststretch_chain (GstPad * pad, GstBuffer * buf)
 
   filter = GST_GIMPCONTRASTSTRETCH (GST_OBJECT_PARENT (pad));
 
-  wrbuf = gst_buffer_make_writable (buf);
-  if(buf != wrbuf) {
-    gst_buffer_unref (buf);
-  }
-
-  data = GST_BUFFER_DATA (wrbuf);
+  buf = gst_buffer_make_writable (buf);
+  data = GST_BUFFER_DATA (buf);
 
 
   /* To HSV */
@@ -489,7 +484,7 @@ gst_gimpcontraststretch_chain (GstPad * pad, GstBuffer * buf)
     }
   }
 
-  return gst_pad_push (filter->srcpad, wrbuf);
+  return gst_pad_push (filter->srcpad, buf);
 }
 
 

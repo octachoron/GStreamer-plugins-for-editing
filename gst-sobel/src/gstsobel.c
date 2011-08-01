@@ -268,7 +268,7 @@ static GstFlowReturn
 gst_sobel_chain (GstPad * pad, GstBuffer * buf)
 {
   GstSobel *filter;
-  GstBuffer *cpbuf, *wrbuf;
+  GstBuffer *destbuf;
   gint i, j;
   guint8 *origdata, *newdata;
 
@@ -280,15 +280,11 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
 
   filter = GST_SOBEL (GST_OBJECT_PARENT (pad));
 
-  cpbuf = gst_buffer_copy (buf);
-  wrbuf = gst_buffer_make_writable (cpbuf);
-  if(wrbuf != cpbuf) {
-    gst_buffer_unref(cpbuf);
-  }
-
+  destbuf = gst_buffer_copy (buf);
+  destbuf = gst_buffer_make_writable (destbuf);
 
   origdata = GST_BUFFER_DATA (buf);
-  newdata = GST_BUFFER_DATA (wrbuf);
+  newdata = GST_BUFFER_DATA (destbuf);
 
   if(filter->mirror == TRUE) {
     skip_border = 0;
@@ -351,7 +347,7 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
   }
 
   gst_buffer_unref (buf);
-  return gst_pad_push (filter->srcpad, wrbuf);
+  return gst_pad_push (filter->srcpad, destbuf);
 }
 
 
