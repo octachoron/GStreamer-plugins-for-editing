@@ -59,7 +59,10 @@ struct _GstMaskedUnsharp
 
   /* Sharpening bin stuff */
   GstElement *unsharp_bin;
-  GstElement *gaussblur, *tee, *frame_queue, *sharp_queue, *identity;
+  GstElement *gaussblur; /* The bin takes care of the other elements.
+                          * We keep gaussblur as an instance member to be able
+                          * to set the sigma property at runtime.
+                          */
 
 };
 

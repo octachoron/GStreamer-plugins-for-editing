@@ -56,7 +56,7 @@ enum
 
 enum
 {
-  PROP_0, PROP_SILENT
+  PROP_0, PROP_SILENT, PROP_SIGMA
 };
 
 /* the capabilities of the inputs and outputs.
@@ -148,6 +148,12 @@ gst_masked_unsharp_class_init(GstMaskedUnsharpClass * klass)
   g_object_class_install_property(gobject_class, PROP_SILENT,
       g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
           FALSE, G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SIGMA,
+      g_param_spec_double("sigma", "Sigma", "Sigma value used for sharpening. This "\
+          "value is negated before passing to the internal gaussianblur "\
+          "element, therefore a positive value means sharpen, and a negative "\
+          "value means blur.",
+          -20.0, 20.0, 6.0, G_PARAM_READWRITE));
 
   gstelement_class->change_state = gst_masked_unsharp_change_state;
 }
@@ -165,7 +171,7 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   GstPad *gaussblur_src, *origq_src;
   GstGhostPad *framesink;
   GstBin *unsharp_bin;
-  GstElement *gaussblur, *tee, *frame_queue, *sharp_queue;
+  GstElement *tee, *frame_queue, *sharp_queue;
   GstPad *unsharp_bin_sinkpad, *unsharp_bin_origpad, *unsharp_bin_sharppad;
 
   /* Sharpening bin sink pad given as target later */
@@ -192,18 +198,19 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   /* Set up the bin for global sharpening */
 
   filter->unsharp_bin = gst_bin_new("unsharp-bin");
-  gaussblur = gst_element_factory_make("gaussianblur", "sharpen");
+  filter->gaussblur = gst_element_factory_make("gaussianblur", "sharpen");
+  gst_object_ref (filter->gaussblur); /* Keep things clean and hold a reference
+                                       * for setting the sigma property at
+                                       * runtime.
+                                       */
   tee = gst_element_factory_make("tee", "tee");
   frame_queue = gst_element_factory_make("queue", "frame-queue");
   sharp_queue = gst_element_factory_make("queue", "sharp-queue");
 
-  g_object_set(G_OBJECT (gaussblur), "sigma", (gdouble) -6.0, NULL);
-      //TODO: turn this into a property
-
   unsharp_bin = GST_BIN (filter->unsharp_bin);
-  gst_bin_add_many(unsharp_bin, gaussblur, tee,
+  gst_bin_add_many(unsharp_bin, filter->gaussblur, tee,
       frame_queue, sharp_queue, NULL);
-  gst_element_link_many(sharp_queue, gaussblur, NULL);
+  gst_element_link_many(sharp_queue, filter->gaussblur, NULL);
   tee_sinkpad = gst_element_get_static_pad(tee, "sink");
 
   tee_src0 = gst_element_get_request_pad(tee, "src%d");
@@ -213,7 +220,7 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   origq_sink = gst_element_get_static_pad(frame_queue, "sink");
   sharpq_sink = gst_element_get_static_pad(sharp_queue, "sink");
   origq_src = gst_element_get_static_pad(frame_queue, "src");
-  gaussblur_src = gst_element_get_static_pad(gaussblur, "src");
+  gaussblur_src = gst_element_get_static_pad(filter->gaussblur, "src");
 
   gst_pad_link(tee_src0, sharpq_sink);
   gst_pad_link(tee_src1, origq_sink);
@@ -272,6 +279,7 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   /* Set up default property values */
 
   filter->silent = FALSE;
+  g_object_set(G_OBJECT (filter->gaussblur), "sigma", (gdouble) -6.0, NULL);
 
 }
 
@@ -280,6 +288,7 @@ gst_masked_unsharp_finalize (GObject *object) {
   GstMaskedUnsharp *filter = GST_MASKEDUNSHARP (object);
 
   gst_object_unref(filter->input);
+  gst_object_unref(filter->gaussblur);
 
   G_OBJECT_CLASS (parent_class)->finalize(object);
 }
@@ -295,6 +304,9 @@ gst_masked_unsharp_set_property(GObject * object, guint prop_id,
   case PROP_SILENT:
     filter->silent = g_value_get_boolean(value);
     break;
+  case PROP_SIGMA:
+    g_object_set (filter->gaussblur, "sigma", -1.0 * g_value_get_double(value), NULL);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     break;
@@ -306,11 +318,16 @@ gst_masked_unsharp_get_property(GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
   GstMaskedUnsharp *filter = GST_MASKEDUNSHARP (object);
+  gdouble sigma=0.0;
 
   switch (prop_id)
     {
   case PROP_SILENT:
     g_value_set_boolean(value, filter->silent);
+    break;
+  case PROP_SIGMA:
+    g_object_get(filter->gaussblur, "sigma", &sigma, NULL);
+    g_value_set_double(value, -sigma);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
