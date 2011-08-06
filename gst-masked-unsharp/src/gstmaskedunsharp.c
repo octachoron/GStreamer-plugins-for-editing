@@ -147,13 +147,13 @@ gst_masked_unsharp_class_init(GstMaskedUnsharpClass * klass)
 
   g_object_class_install_property(gobject_class, PROP_SILENT,
       g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
-          FALSE, G_PARAM_READWRITE));
+          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property(gobject_class, PROP_SIGMA,
       g_param_spec_double("sigma", "Sigma", "Sigma value used for sharpening. This "\
           "value is negated before passing to the internal gaussianblur "\
           "element, therefore a positive value means sharpen, and a negative "\
           "value means blur.",
-          -20.0, 20.0, 6.0, G_PARAM_READWRITE));
+          -20.0, 20.0, 6.0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   gstelement_class->change_state = gst_masked_unsharp_change_state;
 }

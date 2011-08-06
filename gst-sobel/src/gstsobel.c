@@ -157,14 +157,14 @@ gst_sobel_class_init (GstSobelClass * klass)
 
   g_object_class_install_property (gobject_class, PROP_SILENT,
       g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
-          FALSE, G_PARAM_READWRITE));
+          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class, PROP_MIRROR,
       g_param_spec_boolean ("mirror", "Mirror", "If true, clamp the indices\
 between zero and maximum dimension in the gradient calculation, effectively\
 mirroring border pixels outside the frame, so that the operator can be applied\
 to them. This reduces performance. If false, border pixels will be black.",
-          FALSE, G_PARAM_READWRITE));
+          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 /* initialize the new element
