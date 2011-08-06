@@ -75,4 +75,9 @@ GType gst_masked_unsharp_get_type (void);
 
 G_END_DECLS
 
+#define MASKED_UNSHARP_SIGMA_MIN -20.0
+#define MASKED_UNSHARP_SIGMA_MAX 20.0
+#define MASKED_UNSHARP_SIGMA_DEFAULT 6.0
+
+
 #endif /* __GST_MASKEDUNSHARP_H__ */

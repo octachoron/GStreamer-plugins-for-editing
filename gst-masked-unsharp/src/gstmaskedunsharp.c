@@ -153,7 +153,8 @@ gst_masked_unsharp_class_init(GstMaskedUnsharpClass * klass)
           "value is negated before passing to the internal gaussianblur "\
           "element, therefore a positive value means sharpen, and a negative "\
           "value means blur.",
-          -20.0, 20.0, 6.0, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+          MASKED_UNSHARP_SIGMA_MIN, MASKED_UNSHARP_SIGMA_MAX, MASKED_UNSHARP_SIGMA_DEFAULT,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   gstelement_class->change_state = gst_masked_unsharp_change_state;
 }
@@ -279,7 +280,8 @@ gst_masked_unsharp_init(GstMaskedUnsharp * filter,
   /* Set up default property values */
 
   filter->silent = FALSE;
-  g_object_set(G_OBJECT (filter->gaussblur), "sigma", (gdouble) -6.0, NULL);
+  g_object_set(G_OBJECT (filter->gaussblur), "sigma",
+      (gdouble) -MASKED_UNSHARP_SIGMA_DEFAULT, NULL);
 
 }
 
