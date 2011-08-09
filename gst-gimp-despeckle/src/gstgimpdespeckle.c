@@ -139,7 +139,7 @@ gst_gimp_despeckle_class_init (GstGimpDespeckleClass * klass)
       g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
           FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class, PROP_RADIUS,
-      g_param_spec_int ("despeckle_radius", "Despeckle radius", "Initial radius of the region around the target pixel used for median filtering.",
+      g_param_spec_int ("despeckle-radius", "Despeckle radius", "Initial radius of the region around the target pixel used for median filtering.",
           0, 255, 1, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class, PROP_ADAPTIVE,
       g_param_spec_boolean ("adaptive", "Adaptive", "If true, analyze the histogram of the region around the target pixel, and adjust despeckle diameter accordingly, without increasing it past the initial value.",
@@ -148,10 +148,10 @@ gst_gimp_despeckle_class_init (GstGimpDespeckleClass * klass)
       g_param_spec_boolean ("recursive", "Recursive", "If true, apply the filter recursively by writing filter results also to source data while filtering. Produces a stronger effect, and in some cases, weird results.",
           FALSE, G_PARAM_READWRITE));
   g_object_class_install_property (gobject_class, PROP_BLACK_LEVEL,
-      g_param_spec_int ("black_level", "Black level", "Threshold under which pixels are considered completely dark.",
+      g_param_spec_int ("black-level", "Black level", "Threshold under which pixels are considered completely dark.",
           0, 255, 7, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class, PROP_WHITE_LEVEL,
-      g_param_spec_int ("white_level", "White level", "Threshold over which pixels are considered completely bright.",
+      g_param_spec_int ("white-level", "White level", "Threshold over which pixels are considered completely bright.",
           0, 255, 248, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
