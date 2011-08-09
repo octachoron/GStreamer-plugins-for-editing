@@ -73,6 +73,8 @@ struct _GstSobel
 
   gboolean silent;
   gboolean mirror;
+  gboolean abs_magnitude;
+  gboolean clamp;
 
   gint width, height;
 };
@@ -85,5 +87,8 @@ struct _GstSobelClass
 GType gst_sobel_get_type (void);
 
 G_END_DECLS
+
+#define SOBEL_MAX_ABS 1400
+#define SOBEL_MAX_SQRT 250000
 
 #endif /* __GST_SOBEL_H__ */

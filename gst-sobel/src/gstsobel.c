@@ -91,7 +91,9 @@ enum
 {
   PROP_0,
   PROP_SILENT,
-  PROP_MIRROR
+  PROP_MIRROR,
+  PROP_ABS_MAGNITUDE,
+  PROP_CLAMP
 };
 
 /* the capabilities of the inputs and outputs.
@@ -165,6 +167,19 @@ between zero and maximum dimension in the gradient calculation, effectively\
 mirroring border pixels outside the frame, so that the operator can be applied\
 to them. This reduces performance. If false, border pixels will be black.",
           FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_ABS_MAGNITUDE,
+      g_param_spec_boolean ("abs-magnitude", "Use absolute gradient magnitude",
+          "Calculate gradient magnitude using the formula "
+          "G = abs(Gx) + abs(Gy), instead of G = sqrt(Gx*Gx + Gy*Gy). "
+          "This increases performance at the cost of a little accuracy.",
+          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class, PROP_CLAMP,
+      g_param_spec_boolean ("clamp", "Clamp",
+          "Instead of range conversion, clamp the output of the operator "
+          "inside [0,255].",
+          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 /* initialize the new element
@@ -192,6 +207,8 @@ gst_sobel_init (GstSobel * filter,
   gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
   filter->silent = FALSE;
   filter->mirror = TRUE;
+  filter->abs_magnitude = FALSE;
+  filter->clamp = FALSE;
 }
 
 static void
@@ -206,6 +223,12 @@ gst_sobel_set_property (GObject * object, guint prop_id,
       break;
     case PROP_MIRROR:
       filter->mirror = g_value_get_boolean (value);
+      break;
+    case PROP_ABS_MAGNITUDE:
+      filter->abs_magnitude = g_value_get_boolean (value);
+      break;
+    case PROP_CLAMP:
+      filter->clamp = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -225,6 +248,12 @@ gst_sobel_get_property (GObject * object, guint prop_id,
       break;
     case PROP_MIRROR:
       g_value_set_boolean (value, filter->mirror);
+      break;
+    case PROP_ABS_MAGNITUDE:
+      g_value_set_boolean (value, filter->abs_magnitude);
+      break;
+    case PROP_CLAMP:
+      g_value_set_boolean (value, filter->clamp);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -277,6 +306,8 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
 
   guint8 skip_border = 1;
 
+  gint result;
+
 
   filter = GST_SOBEL (GST_OBJECT_PARENT (pad));
 
@@ -328,8 +359,23 @@ gst_sobel_chain (GstPad * pad, GstBuffer * buf)
         }
       }
 
-      /* Calculate magnitude, normalize */
-      newdata[i*filter->width+j] = sqrt(g_x*g_x + g_y*g_y) * 255 / 1443;
+      /* Calculate magnitude, normalize/clamp */
+      if (filter->abs_magnitude) {
+        result = abs(g_x) + abs(g_y);
+        if(!filter->clamp) {
+          result = result * 255 / SOBEL_MAX_ABS;
+        }
+      } else {
+        result = sqrt(g_x*g_x + g_y*g_y) * 255;
+        if(!filter->clamp) {
+          result = result * 255 / SOBEL_MAX_SQRT;
+        }
+      }
+      if (filter->clamp) {
+        result = CLAMP (result, 0, 255);
+      }
+
+      newdata[i*filter->width+j] = (guint8)result;
     }
   }
 
