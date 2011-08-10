@@ -447,6 +447,7 @@ gst_masked_unsharp_collect_func(GstCollectPads *pads, gpointer user_data)
 
   gst_buffer_unref(maskbuf);
   gst_buffer_unref(framebuf);
+  gst_buffer_unref(sharpbuf);
 
   return gst_pad_push(filter->srcpad, destbuf);
 }
