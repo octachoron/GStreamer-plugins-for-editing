@@ -66,4 +66,8 @@ GType gst_add_alpha_get_type (void);
 
 G_END_DECLS
 
+#define GST_ADDALPHA_FULLY_OPAQUE 255
+#define GST_ADDALPHA_FULLY_TRANSPARENT 0
+
+
 #endif /* __GST_ADDALPHA_H__ */

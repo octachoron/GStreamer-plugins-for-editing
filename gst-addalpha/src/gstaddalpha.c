@@ -370,13 +370,14 @@ gst_add_alpha_src_event (GstPad  *pad, GstEvent *event) {
 static GstFlowReturn
 gst_add_alpha_collect_func(GstCollectPads *pads, gpointer user_data)
 {
-  GstBuffer *framebuf, *maskbuf, *destbuf;
-  guint8 *framedata, *maskdata, *destdata;
+  GstBuffer *framebuf = NULL, *maskbuf = NULL, *destbuf = NULL;
+  guint8 *framedata = NULL, *maskdata = NULL, *destdata = NULL;
 
   GstAddAlpha *filter;
 
   gint width, height;
   guint cur_pixel;
+  gboolean frame_eos = FALSE, mask_eos = FALSE;
 
   GstFlowReturn buf_alloc_ret;
 
@@ -390,8 +391,26 @@ gst_add_alpha_collect_func(GstCollectPads *pads, gpointer user_data)
   framebuf = gst_collect_pads_pop(pads, filter->framesink_cdata);
   maskbuf = gst_collect_pads_pop(pads, filter->masksink_cdata);
 
-  framedata = GST_BUFFER_DATA (framebuf);
-  maskdata = GST_BUFFER_DATA (maskbuf);
+  if (framebuf == NULL) {
+    frame_eos = TRUE;
+    GST_DEBUG ("frame pad is EOS");
+  } else {
+    framedata = GST_BUFFER_DATA (framebuf);
+  }
+
+  if (maskbuf == NULL) {
+    mask_eos = TRUE;
+    GST_DEBUG ("mask pad is EOS");
+  } else {
+    maskdata = GST_BUFFER_DATA (maskbuf);
+  }
+
+  if (frame_eos && mask_eos) {
+    /* Both sink pads are EOS. Let's push an EOS event. */
+    gst_pad_push_event (filter->srcpad, gst_event_new_eos () );
+
+    return GST_FLOW_OK;
+  }
 
   /* Allocate output buffer. */
   buf_alloc_ret = gst_pad_alloc_buffer_and_set_caps(filter->srcpad,
@@ -402,8 +421,12 @@ gst_add_alpha_collect_func(GstCollectPads *pads, gpointer user_data)
 
   /* Handle errors */
   if (buf_alloc_ret != GST_FLOW_OK) {
-    gst_buffer_unref(maskbuf);
-    gst_buffer_unref(framebuf);
+    if (maskbuf) {
+      gst_buffer_unref(maskbuf);
+    }
+    if (framebuf) {
+      gst_buffer_unref(framebuf);
+    }
 
     GST_DEBUG ("could not allocate output buffer");
 
@@ -421,15 +444,43 @@ gst_add_alpha_collect_func(GstCollectPads *pads, gpointer user_data)
 
   /* Do the actual repacking */
   for (cur_pixel = 0; cur_pixel < width*height; cur_pixel++) {
-    destdata[cur_pixel * 4] = maskdata[cur_pixel]; /* Copy alpha byte */
-    /* Copy original bytes */
-    destdata[cur_pixel * 4 + 1] = framedata[cur_pixel * 3];
-    destdata[cur_pixel * 4 + 2] = framedata[cur_pixel * 3 + 1];
-    destdata[cur_pixel * 4 + 3] = framedata[cur_pixel * 3 + 2];
+    /* If the frame pad is EOS, zero out the image and make it
+     * fully transparent. If the mask pad is EOS, make the frame
+     * fully opaque. Else, copy pixel and alpha data.
+     */
+    guint8 alpha_byte = GST_ADDALPHA_FULLY_TRANSPARENT;
+    guint8 pixel_data[3] = {0, 0, 0};
+
+    if (mask_eos) {
+      alpha_byte = GST_ADDALPHA_FULLY_OPAQUE;
+    } else {
+      alpha_byte = maskdata[cur_pixel];
+    }
+
+    /* If mask_eos, there can't be frame_eos, b/c we handle that earlier,
+     * so this is run in the normal case and mask_eos too.
+     */
+    if (!frame_eos) {
+      pixel_data[0] = framedata[cur_pixel * 3];
+      pixel_data[1] = framedata[cur_pixel * 3 + 1];
+      pixel_data[2] = framedata[cur_pixel * 3 + 2];
+    }
+
+    /* If frame_eos, alpha_byte and pixel_data remain default */
+
+    destdata[cur_pixel * 4] = alpha_byte; /* Copy alpha byte */
+    /* Copy pixel data */
+    destdata[cur_pixel * 4 + 1] = pixel_data[0];
+    destdata[cur_pixel * 4 + 2] = pixel_data[1];
+    destdata[cur_pixel * 4 + 3] = pixel_data[2];
   }
 
-  gst_buffer_unref(maskbuf);
-  gst_buffer_unref(framebuf);
+  if (maskbuf) {
+    gst_buffer_unref(maskbuf);
+  }
+  if (framebuf) {
+    gst_buffer_unref(framebuf);
+  }
 
   return gst_pad_push(filter->srcpad, destbuf);
 }
