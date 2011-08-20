@@ -410,6 +410,11 @@ gst_add_alpha_collect_func(GstCollectPads *pads, gpointer user_data)
     return buf_alloc_ret;
   }
 
+  GST_BUFFER_TIMESTAMP (destbuf) = GST_BUFFER_TIMESTAMP (framebuf);
+  GST_BUFFER_DURATION (destbuf) = GST_BUFFER_DURATION (framebuf);
+  GST_BUFFER_OFFSET (destbuf) = GST_BUFFER_OFFSET (framebuf);
+  GST_BUFFER_OFFSET_END (destbuf) = GST_BUFFER_OFFSET_END (framebuf);
+
   destdata = GST_BUFFER_DATA (destbuf);
 
   GST_DEBUG ("buffer sizes: frame %u, mask %u, dest %u", GST_BUFFER_SIZE (framebuf), GST_BUFFER_SIZE (maskbuf), GST_BUFFER_SIZE (destbuf));
